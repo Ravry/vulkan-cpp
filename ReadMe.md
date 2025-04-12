@@ -1,2 +1,2 @@
-#Requirements
-`` vulkan glfw and a logger.h ``
+# Requirements
+`` vulkan, glfw and logger.h ``
