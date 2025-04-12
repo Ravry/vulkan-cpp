@@ -17,10 +17,13 @@ private:
     VkCommandPool commandPool;
     VkCommandBuffer commandBuffer;
     VkFence fence;
+
     uint16_t width;
     uint16_t height;
 public:
     Window(const uint16_t width, const uint16_t height, const std::string_view title);
+    void setupVulkan();
     void run();
+    void render();
     void clean();
 };

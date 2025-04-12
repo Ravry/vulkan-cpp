@@ -5,7 +5,7 @@
 
 Window::Window(const uint16_t width, const uint16_t height, const std::string_view title) : width(width), height(height) {
     if (!glfwInit()) {
-        printf("error while initializing glfw");
+        LOG(LOG_ERROR_UTILS, "error while initializing glfw");
     }
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -13,9 +13,16 @@ Window::Window(const uint16_t width, const uint16_t height, const std::string_vi
 
     window = glfwCreateWindow(width, height, title.data(), nullptr, nullptr);
     
-    context = initVulkan();
+    setupVulkan();
+}
+
+void Window::setupVulkan() {
+    if (!initVulkan(context)) {
+        LOG(LOG_DEFAULT_UTILS, "error while initializing vulkan");
+    }
+
     if (glfwCreateWindowSurface(context->instance, window, nullptr, &surface) != VK_SUCCESS) {
-        printf("error creating glfw window surface");
+        LOG(LOG_ERROR_UTILS, "error creating glfw window surface");
         return;
     }
     swapchain = createSwapchain(context, surface, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);    
@@ -57,52 +64,70 @@ Window::Window(const uint16_t width, const uint16_t height, const std::string_vi
 }
 
 void Window::run() {
+    double deltaTime {.0};
+    double lastTime {.0};
+    double elapsedTime {.0};
+    double fpsTimer {.0};
+
     while(!glfwWindowShouldClose(window)) {
-        glfwPollEvents();
-
-        uint32_t imageIndex {0};
-        vkAcquireNextImageKHR(context->device, swapchain.swapchain, UINT64_MAX, 0, fence, &imageIndex);
-
-        vkResetCommandPool(context->device, commandPool, 0);
-
-        VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        vkBeginCommandBuffer(commandBuffer, &beginInfo);
-        {
-            VkClearValue clearValue = {1.0f, 0.0f, 1.0f, 1.0f};
-            VkRenderPassBeginInfo beginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
-            beginInfo.renderPass = renderPass;
-            beginInfo.framebuffer = framebuffers[imageIndex];
-            beginInfo.renderArea = { {0, 0}, {swapchain.width, swapchain.height}};
-            beginInfo.clearValueCount = 1;
-            beginInfo.pClearValues = &clearValue;
-            vkCmdBeginRenderPass(commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
-            
-            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
-            vkCmdDraw(commandBuffer, 3, 1, 0, 0);
-
-            vkCmdEndRenderPass(commandBuffer);
+        double currentTime = glfwGetTime();
+        deltaTime = currentTime - lastTime;
+        lastTime = currentTime;
+        elapsedTime += deltaTime;
+        fpsTimer += deltaTime;
+        if (fpsTimer >= 1.) {
+            LOG(LOG_DEFAULT_UTILS, "%f", 1.f/deltaTime);
+            fpsTimer = .0;
         }
-        vkEndCommandBuffer(commandBuffer);
 
-        vkWaitForFences(context->device, 1, &fence, VK_TRUE, UINT64_MAX);
-        vkResetFences(context->device, 1, &fence);
-
-        VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffer;
-        vkQueueSubmit(context->graphicsQueue.queue, 1, &submitInfo, 0);
-
-        vkDeviceWaitIdle(context->device);
-
-        VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
-        presentInfo.swapchainCount = 1;
-        presentInfo.pSwapchains = &swapchain.swapchain;
-        presentInfo.pImageIndices = &imageIndex;
-
-        vkQueuePresentKHR(context->graphicsQueue.queue, &presentInfo);
+        glfwPollEvents();
+        render();
     }
     clean();
+}
+
+void Window::render() {
+    uint32_t imageIndex {0};
+    vkAcquireNextImageKHR(context->device, swapchain.swapchain, UINT64_MAX, 0, fence, &imageIndex);
+
+    vkResetCommandPool(context->device, commandPool, 0);
+
+    VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+    {
+        VkClearValue clearValue = {1.0f, 0.0f, 1.0f, 1.0f};
+        VkRenderPassBeginInfo beginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
+        beginInfo.renderPass = renderPass;
+        beginInfo.framebuffer = framebuffers[imageIndex];
+        beginInfo.renderArea = { {0, 0}, {swapchain.width, swapchain.height}};
+        beginInfo.clearValueCount = 1;
+        beginInfo.pClearValues = &clearValue;
+        vkCmdBeginRenderPass(commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
+        vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+
+        vkCmdEndRenderPass(commandBuffer);
+    }
+    vkEndCommandBuffer(commandBuffer);
+
+    vkWaitForFences(context->device, 1, &fence, VK_TRUE, UINT64_MAX);
+    vkResetFences(context->device, 1, &fence);
+
+    VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+    vkQueueSubmit(context->graphicsQueue.queue, 1, &submitInfo, 0);
+
+    vkDeviceWaitIdle(context->device);
+
+    VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = &swapchain.swapchain;
+    presentInfo.pImageIndices = &imageIndex;
+
+    vkQueuePresentKHR(context->graphicsQueue.queue, &presentInfo);
 }
 
 void Window::clean() {

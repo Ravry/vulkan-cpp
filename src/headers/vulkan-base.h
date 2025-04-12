@@ -31,6 +31,9 @@ struct VulkanContext {
     VulkanQueue graphicsQueue;
 };
 
+bool initVulkan(VulkanContext*& context);
+void cleanVulkan(VulkanContext* context);
+
 VulkanSwapchain createSwapchain(VulkanContext* context, VkSurfaceKHR surface, VkImageUsageFlags usage);
 void destroySwapchain(VulkanContext* context, VulkanSwapchain* swapchain);
 
@@ -39,6 +42,3 @@ void destroyRenderpass(VulkanContext* context, VkRenderPass renderPass);
 
 VulkanPipeline createPipeline(VulkanContext* context, const char* vertexShaderFilename, const char* fragmentShaderFilename, VkRenderPass renderPass, uint32_t width, uint32_t height);
 void destroyPipeline(VulkanContext* context, VulkanPipeline* pipeline);
-
-VulkanContext* initVulkan();
-void cleanVulkan(VulkanContext* context);
