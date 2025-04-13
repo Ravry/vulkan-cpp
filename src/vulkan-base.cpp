@@ -130,7 +130,7 @@ bool createLogicalDevice(VulkanContext* context) {
 
 bool initVulkan(VulkanContext*& context) {
     context = new VulkanContext;
-
+    
     if (!initVulkanInstance(context)) {
         LOG(LOG_ERROR_UTILS, "error creating vulkan instance");
         return false;

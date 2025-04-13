@@ -17,6 +17,8 @@ private:
     VkCommandPool commandPool;
     VkCommandBuffer commandBuffer;
     VkFence fence;
+    VkSemaphore acquireSemaphore;
+    VkSemaphore releaseSemaphore;
 
     uint16_t width;
     uint16_t height;

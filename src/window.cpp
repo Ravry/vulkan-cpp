@@ -25,6 +25,7 @@ void Window::setupVulkan() {
         LOG(LOG_ERROR_UTILS, "error creating glfw window surface");
         return;
     }
+    
     swapchain = createSwapchain(context, surface, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);    
     renderPass = createRenderPass(context, swapchain.format);
 
@@ -40,11 +41,18 @@ void Window::setupVulkan() {
         vkCreateFramebuffer(context->device, &createInfo, 0, &framebuffers[i]);
     }
 
-    pipeline = createPipeline(context, "../shaders/default-vert.spv", "../shaders/default-frag.spv", renderPass, swapchain.width, swapchain.height);
+    pipeline = createPipeline(context, "spvs/default-vert.spv", "spvs/default-frag.spv", renderPass, swapchain.width, swapchain.height);
 
     {
         VkFenceCreateInfo createInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+        createInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
         vkCreateFence(context->device, &createInfo, 0, &fence);
+    }
+
+    {
+        VkSemaphoreCreateInfo createInfo { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+        vkCreateSemaphore(context->device, &createInfo, 0, &acquireSemaphore);
+        vkCreateSemaphore(context->device, &createInfo, 0, &releaseSemaphore);
     }
 
     {
@@ -88,7 +96,11 @@ void Window::run() {
 
 void Window::render() {
     uint32_t imageIndex {0};
-    vkAcquireNextImageKHR(context->device, swapchain.swapchain, UINT64_MAX, 0, fence, &imageIndex);
+
+    vkWaitForFences(context->device, 1, &fence, VK_TRUE, UINT64_MAX);
+    vkResetFences(context->device, 1, &fence);
+
+    vkAcquireNextImageKHR(context->device, swapchain.swapchain, UINT64_MAX, acquireSemaphore, 0, &imageIndex);
 
     vkResetCommandPool(context->device, commandPool, 0);
 
@@ -112,26 +124,31 @@ void Window::render() {
     }
     vkEndCommandBuffer(commandBuffer);
 
-    vkWaitForFences(context->device, 1, &fence, VK_TRUE, UINT64_MAX);
-    vkResetFences(context->device, 1, &fence);
-
     VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffer;
-    vkQueueSubmit(context->graphicsQueue.queue, 1, &submitInfo, 0);
-
-    vkDeviceWaitIdle(context->device);
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = &acquireSemaphore;
+    VkPipelineStageFlags waitMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    submitInfo.pWaitDstStageMask = &waitMask;
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = &releaseSemaphore;
+    vkQueueSubmit(context->graphicsQueue.queue, 1, &submitInfo, fence);
 
     VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = &swapchain.swapchain;
     presentInfo.pImageIndices = &imageIndex;
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = &releaseSemaphore;
 
     vkQueuePresentKHR(context->graphicsQueue.queue, &presentInfo);
 }
 
 void Window::clean() {
     vkDeviceWaitIdle(context->device);
+    vkDestroySemaphore(context->device, acquireSemaphore, 0);
+    vkDestroySemaphore(context->device, releaseSemaphore, 0);
     vkDestroyFence(context->device, fence, 0);
     vkDestroyCommandPool(context->device, commandPool, 0);
     destroyPipeline(context, &pipeline);
