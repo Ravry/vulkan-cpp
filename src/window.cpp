@@ -17,58 +17,19 @@ Window::Window(const uint16_t width, const uint16_t height, const std::string_vi
 }
 
 void Window::setupVulkan() {
-    if (!initVulkan(context)) {
-        LOG(LOG_DEFAULT_UTILS, "error while initializing vulkan");
-    }
+    initVulkan(context);
 
-    if (glfwCreateWindowSurface(context->instance, window, nullptr, &surface) != VK_SUCCESS) {
-        LOG(LOG_ERROR_UTILS, "error creating glfw window surface");
-        return;
-    }
-    
-    swapchain = createSwapchain(context, surface, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);    
-    renderPass = createRenderPass(context, swapchain.format);
+    VAC(glfwCreateWindowSurface(context->instance, window, nullptr, &surface), return);
 
-    framebuffers.resize(swapchain.images.size());
-    for (size_t i {0}; i < swapchain.images.size(); i++) {
-        VkFramebufferCreateInfo createInfo = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-        createInfo.renderPass = renderPass;
-        createInfo.attachmentCount = 1;
-        createInfo.pAttachments = &swapchain.imageViews[i];
-        createInfo.width = swapchain.width;
-        createInfo.height = swapchain.height;
-        createInfo.layers = 1;
-        vkCreateFramebuffer(context->device, &createInfo, 0, &framebuffers[i]);
-    }
-
-    pipeline = createPipeline(context, "spvs/default-vert.spv", "spvs/default-frag.spv", renderPass, swapchain.width, swapchain.height);
-
-    {
-        VkFenceCreateInfo createInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
-        createInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-        vkCreateFence(context->device, &createInfo, 0, &fence);
-    }
-
-    {
-        VkSemaphoreCreateInfo createInfo { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-        vkCreateSemaphore(context->device, &createInfo, 0, &acquireSemaphore);
-        vkCreateSemaphore(context->device, &createInfo, 0, &releaseSemaphore);
-    }
-
-    {
-        VkCommandPoolCreateInfo createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
-        createInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-        createInfo.queueFamilyIndex = context->graphicsQueue.familyIndex;
-        vkCreateCommandPool(context->device, &createInfo, 0, &commandPool);
-    }
-
-    {
-        VkCommandBufferAllocateInfo allocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-        allocateInfo.commandPool = commandPool;
-        allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocateInfo.commandBufferCount = 1;
-        vkAllocateCommandBuffers(context->device, &allocateInfo, &commandBuffer);
-    }
+    createSwapchain(context, surface, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, swapchain);    
+    createRenderPass(context, swapchain.format, renderPass);
+    createFramebuffers(context, framebuffers, swapchain, renderPass);
+    createPipeline(context, "spvs/default-vert.spv", "spvs/default-frag.spv", renderPass, swapchain.width, swapchain.height, pipeline);
+    createFence(context, &fence);
+    createSemaphore(context, &acquireSemaphore);
+    createSemaphore(context, &releaseSemaphore);
+    createCommandPool(context, &commandPool);
+    allocateCommandBuffers(context, commandPool, &commandBuffer);
 }
 
 void Window::run() {
@@ -151,16 +112,14 @@ void Window::clean() {
     vkDestroySemaphore(context->device, releaseSemaphore, 0);
     vkDestroyFence(context->device, fence, 0);
     vkDestroyCommandPool(context->device, commandPool, 0);
+
     destroyPipeline(context, &pipeline);
-    for (size_t i {0}; i < framebuffers.size(); i++) {
-        vkDestroyFramebuffer(context->device, framebuffers[i], 0);
-    }
-    framebuffers.clear();
+    destroyFramebuffers(context, framebuffers);
     destroyRenderpass(context, renderPass);
     destroySwapchain(context, &swapchain);
+    
     vkDestroySurfaceKHR(context->instance, surface, 0);
+    
     cleanVulkan(context);
-    delete context;
-    context = nullptr;
     glfwTerminate();
 }

@@ -1,12 +1,11 @@
 #include "vulkan-base.h"
 
-VulkanSwapchain createSwapchain(VulkanContext* context, VkSurfaceKHR surface, VkImageUsageFlags usage) {
-    VulkanSwapchain result = {};
+void createSwapchain(VulkanContext* context, VkSurfaceKHR surface, VkImageUsageFlags usage, VulkanSwapchain& swapchain) {
+    swapchain = {};
     VkBool32 supportsPresent = 0;
     vkGetPhysicalDeviceSurfaceSupportKHR(context->physicalDevice, context->graphicsQueue.familyIndex, surface, &supportsPresent);
     if (!supportsPresent) {
-        printf("graphics queue does not support present");
-        return result;
+        return;
     }
 
     uint32_t numFormats {0};
@@ -16,8 +15,7 @@ VulkanSwapchain createSwapchain(VulkanContext* context, VkSurfaceKHR surface, Vk
     vkGetPhysicalDeviceSurfaceFormatsKHR(context->physicalDevice, surface, &numFormats, availableFormats.data());
     if (numFormats <= 0)
     {
-        printf("no surface formats available");
-        return result;
+        return;
     }
 
     VkFormat format = availableFormats[0].format;
@@ -46,29 +44,27 @@ VulkanSwapchain createSwapchain(VulkanContext* context, VkSurfaceKHR surface, Vk
     createInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR;
     // createInfo.clipped = VK_TRUE;
 
-    vkCreateSwapchainKHR(context->device, &createInfo, 0, &result.swapchain);
+    VAC(vkCreateSwapchainKHR(context->device, &createInfo, 0, &swapchain.swapchain), return);
 
-    result.format = format;
-    result.width = surfaceCapabilities.currentExtent.width;
-    result.height = surfaceCapabilities.currentExtent.height;
+    swapchain.format = format;
+    swapchain.width = surfaceCapabilities.currentExtent.width;
+    swapchain.height = surfaceCapabilities.currentExtent.height;
 
     uint32_t numImages;
-    vkGetSwapchainImagesKHR(context->device, result.swapchain, &numImages, 0);
-    result.images.resize(numImages);
-    vkGetSwapchainImagesKHR(context->device, result.swapchain, &numImages, result.images.data());
+    vkGetSwapchainImagesKHR(context->device, swapchain.swapchain, &numImages, 0);
+    swapchain.images.resize(numImages);
+    vkGetSwapchainImagesKHR(context->device, swapchain.swapchain, &numImages, swapchain.images.data());
 
-    result.imageViews.resize(numImages);
+    swapchain.imageViews.resize(numImages);
     for (size_t i {0}; i < numImages; i++) {
         VkImageViewCreateInfo createInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-        createInfo.image = result.images[i];
+        createInfo.image = swapchain.images[i];
         createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
         createInfo.format = format;
         createInfo.components =  {};
         createInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-        vkCreateImageView(context->device, &createInfo, 0, &result.imageViews[i]);
+        VAC(vkCreateImageView(context->device, &createInfo, 0, &swapchain.imageViews[i]), return);
     }
-
-    return result;
 }
 
 void destroySwapchain(VulkanContext* context, VulkanSwapchain* swapchain) {

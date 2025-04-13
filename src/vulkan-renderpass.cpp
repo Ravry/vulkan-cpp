@@ -1,8 +1,6 @@
 #include "vulkan-base.h"
 
-VkRenderPass createRenderPass(VulkanContext* context, VkFormat format) {
-    VkRenderPass renderPass;
-
+void createRenderPass(VulkanContext* context, VkFormat format, VkRenderPass& renderPass) {
     VkAttachmentDescription attachmentDescription = {};
     attachmentDescription.format = format;
     attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -24,8 +22,7 @@ VkRenderPass createRenderPass(VulkanContext* context, VkFormat format) {
     createInfo.subpassCount = 1;
     createInfo.pSubpasses = &subpass;
 
-    vkCreateRenderPass(context->device, &createInfo, 0, &renderPass);
-    return renderPass;
+    VAC(vkCreateRenderPass(context->device, &createInfo, 0, &renderPass), return);
 }
 
 void destroyRenderpass(VulkanContext* context, VkRenderPass renderPass) {

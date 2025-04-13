@@ -18,13 +18,13 @@ VkShaderModule createShaderModule(VulkanContext* context, const char* shaderFile
     VkShaderModuleCreateInfo createInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
     createInfo.codeSize = fileSize;
     createInfo.pCode = (uint32_t*)buffer;
-    vkCreateShaderModule(context->device, &createInfo, 0, &result);
+    VAC(vkCreateShaderModule(context->device, &createInfo, 0, &result), 0);
     delete[] buffer;
     fclose(file);
     return result;
 }
 
-VulkanPipeline createPipeline(VulkanContext* context, const char* vertexShaderFilename, const char* fragmentShaderFilename, VkRenderPass renderPass, uint32_t width, uint32_t height) {
+void createPipeline(VulkanContext* context, const char* vertexShaderFilename, const char* fragmentShaderFilename, VkRenderPass renderPass, uint32_t width, uint32_t height, VulkanPipeline& pipeline) {
     VkShaderModule vertexShaderModule = createShaderModule(context, vertexShaderFilename);
     VkShaderModule fragmentShaderModule = createShaderModule(context, fragmentShaderFilename);
 
@@ -70,10 +70,10 @@ VulkanPipeline createPipeline(VulkanContext* context, const char* vertexShaderFi
     VkPipelineLayout pipelineLayout;
     {
         VkPipelineLayoutCreateInfo createInfo = {VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-        vkCreatePipelineLayout(context->device, &createInfo, 0, &pipelineLayout);
+        VAC(vkCreatePipelineLayout(context->device, &createInfo, 0, &pipelineLayout), return);
     }
 
-    VkPipeline pipeline;
+    VkPipeline _pipeline;
     {
         VkGraphicsPipelineCreateInfo createInfo = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
         createInfo.stageCount = shaderStages.size();
@@ -87,16 +87,15 @@ VulkanPipeline createPipeline(VulkanContext* context, const char* vertexShaderFi
         createInfo.layout = pipelineLayout;
         createInfo.renderPass = renderPass;
         createInfo.subpass = 0;
-        vkCreateGraphicsPipelines(context->device, 0, 1, &createInfo, 0, &pipeline);
+        VAC(vkCreateGraphicsPipelines(context->device, 0, 1, &createInfo, 0, &_pipeline), return);
     }
 
     vkDestroyShaderModule(context->device, vertexShaderModule, 0);
     vkDestroyShaderModule(context->device, fragmentShaderModule, 0);
 
-    VulkanPipeline result = {};
-    result.pipeline = pipeline;
-    result.pipelineLayout = pipelineLayout;
-    return result;
+    pipeline = {};
+    pipeline.pipeline = _pipeline;
+    pipeline.pipelineLayout = pipelineLayout;
 }
 
 void destroyPipeline(VulkanContext* context, VulkanPipeline* pipeline) {
