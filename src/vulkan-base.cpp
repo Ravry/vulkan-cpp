@@ -8,8 +8,8 @@ void dumpValidationLayers() {
     VAC(vkEnumerateInstanceLayerProperties(&layerPropertyCount, layerProperties.data()), return);
 
     for (size_t i {0}; i < layerPropertyCount; i++) {
-        LOG(LOG_DEFAULT_UTILS, "layer-property-name: %s", layerProperties[i].layerName);
-        LOG(LOG_DEFAULT_UTILS, "layer-property-description: %s", layerProperties[i].description);
+        LOG(LOG_DEFAULT_UTILS, false, "layer-property-name: %s", layerProperties[i].layerName);
+        LOG(LOG_DEFAULT_UTILS, false, "layer-property-description: %s", layerProperties[i].description);
     }
 };
 
@@ -21,7 +21,7 @@ void dumpInstanceExtensions() {
     VAC(vkEnumerateInstanceExtensionProperties(0, &instanceExtensionCount, instanceExtensionProperties.data()), return);
 
     for (size_t i {0}; i < instanceExtensionCount; i++) {
-        LOG(LOG_DEFAULT_UTILS, "instance-extension-name: %s", instanceExtensionProperties[i].extensionName);
+        LOG(LOG_DEFAULT_UTILS, false, "instance-extension-name: %s", instanceExtensionProperties[i].extensionName);
     }
 }
 
@@ -38,7 +38,7 @@ bool initVulkanInstance(VulkanContext* context) {
     const char** glfwInstanceExtensions = glfwGetRequiredInstanceExtensions(&glfwInstanceExtensionCount);
     
     for (size_t i {0}; i < glfwInstanceExtensionCount; i++) {
-        LOG(LOG_DEFAULT_UTILS, "glfw-extension-name: %s", glfwInstanceExtensions[i]);
+        LOG(LOG_DEFAULT_UTILS, false, "glfw-extension-name: %s", glfwInstanceExtensions[i]);
     }
 
     VkApplicationInfo applicationInfo = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
@@ -72,7 +72,7 @@ bool selectPhysicalDevice(VulkanContext* context) {
     for (auto& physicalDevice : physicalDevices) {
         VkPhysicalDeviceProperties properties = {};
         vkGetPhysicalDeviceProperties(physicalDevice, &properties);
-        LOG(LOG_DEFAULT_UTILS, "physical-device-name: %s", properties.deviceName);
+        LOG(LOG_DEFAULT_UTILS, false, "physical-device-name: %s", properties.deviceName);
     }
 
     context->physicalDevice = physicalDevices[0];
@@ -126,15 +126,15 @@ void initVulkan(VulkanContext*& context) {
     context = new VulkanContext;
     
     if (!initVulkanInstance(context)) {
-        LOG(LOG_ERROR_UTILS, "error creating vulkan instance");
+        LOG(LOG_ERROR_UTILS, false, "error creating vulkan instance");
     }
 
     if (!selectPhysicalDevice(context)) {
-        LOG(LOG_ERROR_UTILS, "error finding physical device");
+        LOG(LOG_ERROR_UTILS, false, "error finding physical device");
     }
     
     if (!createLogicalDevice(context)) {
-        LOG(LOG_ERROR_UTILS, "errror creating logical device");
+        LOG(LOG_ERROR_UTILS, false, "errror creating logical device");
     }
 }
 

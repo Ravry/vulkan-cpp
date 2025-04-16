@@ -1,4 +1,4 @@
-# Vulkan Beginner Project
+# Vulkan Project
 
 ## 🚧 Summary
 ``A personal project where I'm learning Vulkan by building a simple rendering engine from scratch. This is a beginner-friendly, work-in-progress repo that documents my journey into low-level graphics programming using the Vulkan API.``
@@ -21,9 +21,5 @@
 - [Vulkan Tutorial](https://vulkan-tutorial.com/)
 - Vulkan documentation from [Khronos Group](https://www.khronos.org/vulkan/)
 - YouTube tutorials and GitHub examples
-
-## 🤓 Notes
-
-This project is not production-ready — it's purely for learning. The code might be rough, messy, or inefficient in places, but that’s all part of the process. I'm documenting my learning journey and improving things as I go.
 
 Feel free to fork, explore, and suggest improvements!

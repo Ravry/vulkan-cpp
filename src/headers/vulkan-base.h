@@ -8,7 +8,7 @@
 #define VAC(value, handler) \
     do { \
         if ((value) < 0) { \
-            LOG(LOG_ERROR_UTILS, "an error occurred!"); \
+            LOG(LOG_ERROR_UTILS, false, "an error occurred!"); \
             handler; \
         } \
     } while(0)

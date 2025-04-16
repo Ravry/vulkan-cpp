@@ -5,7 +5,7 @@
 
 Window::Window(const uint16_t width, const uint16_t height, const std::string_view title) : width(width), height(height) {
     if (!glfwInit()) {
-        LOG(LOG_ERROR_UTILS, "error while initializing glfw");
+        LOG(LOG_ERROR_UTILS, false, "error while initializing glfw");
     }
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -45,7 +45,7 @@ void Window::run() {
         elapsedTime += deltaTime;
         fpsTimer += deltaTime;
         if (fpsTimer >= 1.) {
-            LOG(LOG_DEFAULT_UTILS, "%f", 1.f/deltaTime);
+            LOG(LOG_DEFAULT_UTILS, true, "FPS: %f", 1.0f/deltaTime);
             fpsTimer = .0;
         }
 
