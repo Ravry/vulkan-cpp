@@ -3,9 +3,9 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include "window.h"
 
-Window::Window(const uint16_t width, const uint16_t height, const std::string_view title) : width(width), height(height) {
+Window::Window(const uint16_t width, const uint16_t height, const std::string_view title) : width(width), height(height) {    
     if (!glfwInit()) {
-        LOG(LOG_ERROR_UTILS, false, "error while initializing glfw");
+        throw std::runtime_error("error while initializing glfw");
     }
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -19,7 +19,7 @@ Window::Window(const uint16_t width, const uint16_t height, const std::string_vi
 void Window::setupVulkan() {
     initVulkan(context);
 
-    VAC(glfwCreateWindowSurface(context->instance, window, nullptr, &surface), return);
+    VAC(glfwCreateWindowSurface(context->instance, window, nullptr, &surface));
 
     createSwapchain(context, surface, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, swapchain);    
     createRenderPass(context, swapchain.format, renderPass);
@@ -121,5 +121,7 @@ void Window::clean() {
     vkDestroySurfaceKHR(context->instance, surface, 0);
     
     cleanVulkan(context);
+
+    glfwDestroyWindow(window);
     glfwTerminate();
 }

@@ -3,7 +3,11 @@
 
 int main() {
     enableAnsiColors();
-    Window window(800, 600, "Vulkan Engine");
-    window.run();
+    try {
+        Window window(800, 600, "Vulkan Engine");
+        window.run();
+    } catch(std::exception& exception) {
+        LOG(LOG_ERROR_UTILS, "std::exception: %s", exception.what());
+    }
     return 0;
 }

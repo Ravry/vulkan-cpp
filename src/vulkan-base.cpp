@@ -2,10 +2,10 @@
 
 void dumpValidationLayers() {
     uint32_t layerPropertyCount;
-    VAC(vkEnumerateInstanceLayerProperties(&layerPropertyCount, 0), return);
+    VAC(vkEnumerateInstanceLayerProperties(&layerPropertyCount, 0));
     std::vector<VkLayerProperties> layerProperties;
     layerProperties.resize(layerPropertyCount);
-    VAC(vkEnumerateInstanceLayerProperties(&layerPropertyCount, layerProperties.data()), return);
+    VAC(vkEnumerateInstanceLayerProperties(&layerPropertyCount, layerProperties.data()));
 
     for (size_t i {0}; i < layerPropertyCount; i++) {
         LOG(LOG_DEFAULT_UTILS, false, "layer-property-name: %s", layerProperties[i].layerName);
@@ -15,14 +15,51 @@ void dumpValidationLayers() {
 
 void dumpInstanceExtensions() {
     uint32_t instanceExtensionCount;
-    VAC(vkEnumerateInstanceExtensionProperties(0, &instanceExtensionCount, 0), return);
+    VAC(vkEnumerateInstanceExtensionProperties(0, &instanceExtensionCount, 0));
     std::vector<VkExtensionProperties> instanceExtensionProperties;
     instanceExtensionProperties.resize(instanceExtensionCount);
-    VAC(vkEnumerateInstanceExtensionProperties(0, &instanceExtensionCount, instanceExtensionProperties.data()), return);
+    VAC(vkEnumerateInstanceExtensionProperties(0, &instanceExtensionCount, instanceExtensionProperties.data()));
 
     for (size_t i {0}; i < instanceExtensionCount; i++) {
         LOG(LOG_DEFAULT_UTILS, false, "instance-extension-name: %s", instanceExtensionProperties[i].extensionName);
     }
+}
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
+    if (messageSeverity > VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+        throw std::runtime_error("validation layer: " + std::string(pCallbackData->pMessage));
+    }
+    return VK_FALSE;
+}
+
+VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
+    auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+    if (func != nullptr) {
+        return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+    } else {
+        return VK_ERROR_EXTENSION_NOT_PRESENT;
+    }
+}
+void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
+    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+    if (func != nullptr) {
+        func(instance, debugMessenger, pAllocator);
+    }
+}
+
+VkDebugUtilsMessengerEXT debugMessenger;
+
+void populateCustomDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
+    createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+    createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    createInfo.pfnUserCallback = debugCallback;
+}
+
+void createCustomDebugMessenger(VulkanContext* context) {    
+    VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
+    populateCustomDebugMessengerCreateInfo(createInfo);
+    VAC(CreateDebugUtilsMessengerEXT(context->instance, &createInfo, nullptr, &debugMessenger));
 }
 
 bool initVulkanInstance(VulkanContext* context) {
@@ -36,10 +73,12 @@ bool initVulkanInstance(VulkanContext* context) {
     
     uint32_t glfwInstanceExtensionCount;
     const char** glfwInstanceExtensions = glfwGetRequiredInstanceExtensions(&glfwInstanceExtensionCount);
-    
+    std::vector<const char*> enabledExtensions (glfwInstanceExtensions, glfwInstanceExtensions + glfwInstanceExtensionCount);
+
     for (size_t i {0}; i < glfwInstanceExtensionCount; i++) {
         LOG(LOG_DEFAULT_UTILS, false, "glfw-extension-name: %s", glfwInstanceExtensions[i]);
     }
+    enabledExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
     VkApplicationInfo applicationInfo = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
     applicationInfo.pApplicationName = "vulkan engine";
@@ -50,16 +89,23 @@ bool initVulkanInstance(VulkanContext* context) {
     createInfo.pApplicationInfo = &applicationInfo;
     createInfo.enabledLayerCount = enabledLayers.size();
     createInfo.ppEnabledLayerNames = enabledLayers.data();
-    createInfo.enabledExtensionCount = glfwInstanceExtensionCount;
-    createInfo.ppEnabledExtensionNames = glfwInstanceExtensions;
-    
-    VAC(vkCreateInstance(&createInfo, 0, &context->instance), return false);
+    createInfo.enabledExtensionCount = enabledExtensions.size();
+    createInfo.ppEnabledExtensionNames = enabledExtensions.data();
+
+    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = {};
+    populateCustomDebugMessengerCreateInfo(debugCreateInfo);
+    createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+
+    VAC(vkCreateInstance(&createInfo, 0, &context->instance));
+
+    createCustomDebugMessenger(context);
+
     return true;
 }
 
 bool selectPhysicalDevice(VulkanContext* context) {
     uint32_t numDevices {0};
-    VAC(vkEnumeratePhysicalDevices(context->instance, &numDevices, 0), return false);
+    VAC(vkEnumeratePhysicalDevices(context->instance, &numDevices, 0));
 
     if (numDevices == 0) {
         return false;
@@ -67,7 +113,7 @@ bool selectPhysicalDevice(VulkanContext* context) {
 
     std::vector<VkPhysicalDevice> physicalDevices;
     physicalDevices.resize(numDevices);
-    VAC(vkEnumeratePhysicalDevices(context->instance, &numDevices, physicalDevices.data()), return false);
+    VAC(vkEnumeratePhysicalDevices(context->instance, &numDevices, physicalDevices.data()));
 
     for (auto& physicalDevice : physicalDevices) {
         VkPhysicalDeviceProperties properties = {};
@@ -114,7 +160,7 @@ bool createLogicalDevice(VulkanContext* context) {
     createInfo.ppEnabledExtensionNames = enabledDeviceExtensions.data();
     createInfo.pEnabledFeatures = &enabledFeatures;
 
-    VAC(vkCreateDevice(context->physicalDevice, &createInfo, 0, &context->device), return false);
+    VAC(vkCreateDevice(context->physicalDevice, &createInfo, 0, &context->device));
 
     context->graphicsQueue.familyIndex = graphicsQueueIndex;
     vkGetDeviceQueue(context->device, graphicsQueueIndex, 0, &context->graphicsQueue.queue);
@@ -141,11 +187,11 @@ void initVulkan(VulkanContext*& context) {
 void cleanVulkan(VulkanContext*& context) {
     vkDeviceWaitIdle(context->device),
     vkDestroyDevice(context->device, 0);
+    DestroyDebugUtilsMessengerEXT(context->instance, debugMessenger, nullptr);
     vkDestroyInstance(context->instance, 0);
     delete context;
     context = nullptr;
 }
-
 
 void createFramebuffers(VulkanContext* context, std::vector<VkFramebuffer>& framebuffers, VulkanSwapchain& swapchain, VkRenderPass& renderPass) {
     framebuffers.resize(swapchain.images.size());
@@ -157,7 +203,7 @@ void createFramebuffers(VulkanContext* context, std::vector<VkFramebuffer>& fram
         createInfo.width = swapchain.width;
         createInfo.height = swapchain.height;
         createInfo.layers = 1;
-        VAC(vkCreateFramebuffer(context->device, &createInfo, 0, &framebuffers[i]), return);
+        VAC(vkCreateFramebuffer(context->device, &createInfo, 0, &framebuffers[i]));
     }
 }
 
@@ -171,19 +217,19 @@ void destroyFramebuffers(VulkanContext* context, std::vector<VkFramebuffer>& fra
 void createFence(VulkanContext* context, VkFence* fence) {
     VkFenceCreateInfo createInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
     createInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-    VAC(vkCreateFence(context->device, &createInfo, 0, fence), return);
+    VAC(vkCreateFence(context->device, &createInfo, 0, fence));
 }
 
 void createSemaphore(VulkanContext* context, VkSemaphore* semaphore) {
     VkSemaphoreCreateInfo createInfo { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-    VAC(vkCreateSemaphore(context->device, &createInfo, 0, semaphore), return);
+    VAC(vkCreateSemaphore(context->device, &createInfo, 0, semaphore));
 }
 
 void createCommandPool(VulkanContext* context, VkCommandPool* commandPool) {
     VkCommandPoolCreateInfo createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
     createInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
     createInfo.queueFamilyIndex = context->graphicsQueue.familyIndex;
-    VAC(vkCreateCommandPool(context->device, &createInfo, 0, commandPool), return);
+    VAC(vkCreateCommandPool(context->device, &createInfo, 0, commandPool));
 }
 
 void allocateCommandBuffers(VulkanContext* context, VkCommandPool& commandPool, VkCommandBuffer* commandBuffer) {
@@ -191,5 +237,5 @@ void allocateCommandBuffers(VulkanContext* context, VkCommandPool& commandPool, 
     allocateInfo.commandPool = commandPool;
     allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocateInfo.commandBufferCount = 1;
-    VAC(vkAllocateCommandBuffers(context->device, &allocateInfo, commandBuffer), return);
+    VAC(vkAllocateCommandBuffers(context->device, &allocateInfo, commandBuffer));
 }

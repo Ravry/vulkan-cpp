@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
 set(GLFW_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/glfw")
+set(GLM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/glm")
 set(UTILS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/utils")
 
 find_package(Vulkan REQUIRED)
@@ -27,6 +28,8 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${UTILS_DIR})
 target_include_directories(${PROJECT_NAME} PUBLIC ${GLFW_DIR}/include)
 target_link_directories(${PROJECT_NAME} PUBLIC ${GLFW_DIR}/lib-mingw-w64)
 target_link_libraries(${PROJECT_NAME} PUBLIC glfw3)
+
+target_include_directories(${PROJECT_NAME} PUBLIC ${GLM_DIR})
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME} PUBLIC ${Vulkan_LIBRARIES})

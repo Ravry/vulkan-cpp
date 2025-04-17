@@ -22,7 +22,7 @@ void createRenderPass(VulkanContext* context, VkFormat format, VkRenderPass& ren
     createInfo.subpassCount = 1;
     createInfo.pSubpasses = &subpass;
 
-    VAC(vkCreateRenderPass(context->device, &createInfo, 0, &renderPass), return);
+    VAC(vkCreateRenderPass(context->device, &createInfo, 0, &renderPass));
 }
 
 void destroyRenderpass(VulkanContext* context, VkRenderPass renderPass) {

@@ -3,13 +3,13 @@
 #include <vector>
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
+#include <glm/glm.hpp>
 #include "logger.h"
 
-#define VAC(value, handler) \
+#define VAC(value) \
     do { \
         if ((value) < 0) { \
-            LOG(LOG_ERROR_UTILS, false, "an error occurred!"); \
-            handler; \
+            throw std::runtime_error("vulkan-related exception!"); \
         } \
     } while(0)
 
@@ -17,7 +17,6 @@ struct VulkanQueue {
     VkQueue queue;
     uint32_t familyIndex;
 };
-
 struct VulkanSwapchain {
     VkSwapchainKHR swapchain;
     uint32_t width;
@@ -26,12 +25,10 @@ struct VulkanSwapchain {
     std::vector<VkImage> images;
     std::vector<VkImageView> imageViews;
 };
-
 struct VulkanPipeline {
     VkPipeline pipeline;
     VkPipelineLayout pipelineLayout;
 };
-
 struct VulkanContext {
     VkInstance instance;
     VkPhysicalDevice physicalDevice;

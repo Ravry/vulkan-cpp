@@ -44,7 +44,7 @@ void createSwapchain(VulkanContext* context, VkSurfaceKHR surface, VkImageUsageF
     createInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR;
     // createInfo.clipped = VK_TRUE;
 
-    VAC(vkCreateSwapchainKHR(context->device, &createInfo, 0, &swapchain.swapchain), return);
+    VAC(vkCreateSwapchainKHR(context->device, &createInfo, 0, &swapchain.swapchain));
 
     swapchain.format = format;
     swapchain.width = surfaceCapabilities.currentExtent.width;
@@ -63,7 +63,7 @@ void createSwapchain(VulkanContext* context, VkSurfaceKHR surface, VkImageUsageF
         createInfo.format = format;
         createInfo.components =  {};
         createInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-        VAC(vkCreateImageView(context->device, &createInfo, 0, &swapchain.imageViews[i]), return);
+        VAC(vkCreateImageView(context->device, &createInfo, 0, &swapchain.imageViews[i]));
     }
 }
 

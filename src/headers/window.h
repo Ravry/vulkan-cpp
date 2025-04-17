@@ -8,6 +8,7 @@
 class Window {
 private: 
     GLFWwindow* window;
+    
     VulkanContext* context;
     VkSurfaceKHR surface;
     VulkanSwapchain swapchain;
