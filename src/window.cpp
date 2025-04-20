@@ -3,19 +3,39 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include "window.h"
 
+void framebufferResizeCallback(GLFWwindow *window, int width, int height) {
+    auto app = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+    app->framebufferResized = false;
+    if (width > 0 && height > 0) {
+        app->width = (uint16_t)width;
+        app->height = (uint16_t)height;    
+    }
+}
+
 Window::Window(const uint16_t width, const uint16_t height, const std::string_view title) : width(width), height(height) {    
     if (!glfwInit()) {
         throw std::runtime_error("error while initializing glfw");
     }
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     window = glfwCreateWindow(width, height, title.data(), nullptr, nullptr);
     
+    glfwSetWindowUserPointer(window, this);
+
+    glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
     glfwSetKeyCallback(window, Input::keyCallback);
 
     setupVulkan();
+
+    const std::vector<Vertex> vertices = {
+        {{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
+        {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+        {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+    };
+
+    createVertexBuffer(context, vertices, &vertexBuffer, &vertexBufferMemory);
 }
 
 void Window::setupVulkan() {
@@ -69,11 +89,18 @@ void Window::render() {
     uint32_t imageIndex {0};
 
     vkWaitForFences(context->device, 1, &fence[frameIndex], VK_TRUE, UINT64_MAX);
+
+    VkResult result = vkAcquireNextImageKHR(context->device, swapchain.swapchain, UINT64_MAX, acquireSemaphore[frameIndex], 0, &imageIndex);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+        framebufferResized = false;
+        recreateSwapchain(window, context, swapchain, framebuffers, surface, renderPass);
+        return;
+    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+        throw std::runtime_error("failed to acquire swapchain image!");
+    }    
+
     vkResetFences(context->device, 1, &fence[frameIndex]);
 
-    vkAcquireNextImageKHR(context->device, swapchain.swapchain, UINT64_MAX, acquireSemaphore[frameIndex], 0, &imageIndex);
-
-    // vkResetCommandPool(context->device, commandPool, 0);
     vkResetCommandBuffer(commandBuffer[frameIndex], 0);
 
     VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
@@ -90,7 +117,27 @@ void Window::render() {
         vkCmdBeginRenderPass(commandBuffer[frameIndex], &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
         
         vkCmdBindPipeline(commandBuffer[frameIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
-        vkCmdDraw(commandBuffer[frameIndex], 3, 1, 0, 0);
+        
+        VkViewport viewport;
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = width;
+        viewport.height = height;
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+
+        vkCmdSetViewport(commandBuffer[frameIndex], 0, 1, &viewport);
+
+        VkRect2D scissor;
+        scissor.offset = {0, 0};
+        scissor.extent = {width, height};
+        vkCmdSetScissor(commandBuffer[frameIndex], 0, 1, &scissor);
+
+        VkBuffer vertexBuffers[] = {vertexBuffer};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(commandBuffer[frameIndex], 0, 1, vertexBuffers, offsets);
+
+        vkCmdDraw(commandBuffer[frameIndex], static_cast<uint32_t>(3), 1, 0, 0);
 
         vkCmdEndRenderPass(commandBuffer[frameIndex]);
     }
@@ -114,20 +161,30 @@ void Window::render() {
     presentInfo.waitSemaphoreCount = 1;
     presentInfo.pWaitSemaphores = &releaseSemaphore[frameIndex];
 
-    vkQueuePresentKHR(context->graphicsQueue.queue, &presentInfo);
+    result = vkQueuePresentKHR(context->graphicsQueue.queue, &presentInfo);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
+        framebufferResized = false;
+        recreateSwapchain(window, context, swapchain, framebuffers, surface, renderPass);
+    } else if (result != VK_SUCCESS) {
+        throw std::runtime_error("failed to present swapchain image!");
+    }   
 
     frameIndex = (frameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 void Window::clean() {
     vkDeviceWaitIdle(context->device);
-    destroySyncObjects(context, acquireSemaphore, releaseSemaphore, fence);
-    vkDestroyCommandPool(context->device, commandPool, 0);
+    
+    destroyVertexBuffer(context, vertexBuffer);
+    vkFreeMemory(context->device, vertexBufferMemory, 0);
+
+    destroySwapchain(context, &swapchain, framebuffers);
 
     destroyPipeline(context, &pipeline);
-    destroyFramebuffers(context, framebuffers);
     destroyRenderpass(context, renderPass);
-    destroySwapchain(context, &swapchain);
+
+    destroySyncObjects(context, acquireSemaphore, releaseSemaphore, fence);
+    vkDestroyCommandPool(context->device, commandPool, 0);
     
     vkDestroySurfaceKHR(context->instance, surface, 0);
     

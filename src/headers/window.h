@@ -1,5 +1,4 @@
 #pragma once
-#include <iostream>
 #include <string_view>
 #include <glfw/glfw3.h>
 #include <GLFW/glfw3native.h>
@@ -22,9 +21,14 @@ private:
     std::vector<VkSemaphore> acquireSemaphore;
     std::vector<VkSemaphore> releaseSemaphore;
 
+    VkBuffer vertexBuffer;
+    VkDeviceMemory vertexBufferMemory;
+
+public:
     uint16_t width;
     uint16_t height;
-public:
+    bool framebufferResized {false};
+
     Window(const uint16_t width, const uint16_t height, const std::string_view title);
     void setupVulkan();
     void run();

@@ -40,8 +40,17 @@ void createPipeline(VulkanContext* context, const char* vertexShaderFilename, co
     shaderStages[1].module = fragmentShaderModule;
     shaderStages[1].pName = "main";
 
+
+
+    auto bindingDescription = Vertex::getBindingDescription();
+    auto attributeDescriptions = Vertex::getAttributeDescription();
+
     VkPipelineVertexInputStateCreateInfo vertexInputState = { VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
-    
+    vertexInputState.vertexBindingDescriptionCount = 1;
+    vertexInputState.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+    vertexInputState.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputState.pVertexAttributeDescriptions = attributeDescriptions.data();
+
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = { VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
     inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
@@ -75,6 +84,15 @@ void createPipeline(VulkanContext* context, const char* vertexShaderFilename, co
 
     VkPipeline _pipeline;
     {
+        VkDynamicState dynamicStates[] = {
+            VK_DYNAMIC_STATE_VIEWPORT,
+            VK_DYNAMIC_STATE_SCISSOR
+        };
+        
+        VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+        dynamicStateCreateInfo.dynamicStateCount = 2;
+        dynamicStateCreateInfo.pDynamicStates = dynamicStates;
+
         VkGraphicsPipelineCreateInfo createInfo = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
         createInfo.stageCount = shaderStages.size();
         createInfo.pStages = shaderStages.data();
@@ -84,6 +102,7 @@ void createPipeline(VulkanContext* context, const char* vertexShaderFilename, co
         createInfo.pRasterizationState = &rasterizationState;
         createInfo.pMultisampleState = &multisampleState;
         createInfo.pColorBlendState = &colorBlendState;
+        createInfo.pDynamicState = &dynamicStateCreateInfo;
         createInfo.layout = pipelineLayout;
         createInfo.renderPass = renderPass;
         createInfo.subpass = 0;

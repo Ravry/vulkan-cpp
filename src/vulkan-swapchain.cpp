@@ -1,6 +1,6 @@
 #include "vulkan-base.h"
 
-void createSwapchain(VulkanContext* context, VkSurfaceKHR surface, VkImageUsageFlags usage, VulkanSwapchain& swapchain) {
+void createSwapchain(VulkanContext* context, VkSurfaceKHR surface, VkImageUsageFlags usage, VulkanSwapchain& swapchain) {    
     swapchain = {};
     VkBool32 supportsPresent = 0;
     vkGetPhysicalDeviceSurfaceSupportKHR(context->physicalDevice, context->graphicsQueue.familyIndex, surface, &supportsPresent);
@@ -23,6 +23,9 @@ void createSwapchain(VulkanContext* context, VkSurfaceKHR surface, VkImageUsageF
 
     VkSurfaceCapabilitiesKHR surfaceCapabilities;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context->physicalDevice, surface, &surfaceCapabilities);
+
+    LOG(LOG_DEFAULT_UTILS, false, "{[width: %f]; [height: %f]}", surfaceCapabilities.currentExtent.width, surfaceCapabilities.currentExtent.height);
+
     if (surfaceCapabilities.currentExtent.width == 0xFFFFFFFF) {
         surfaceCapabilities.currentExtent.width = surfaceCapabilities.minImageExtent.width;
     }
@@ -66,9 +69,26 @@ void createSwapchain(VulkanContext* context, VkSurfaceKHR surface, VkImageUsageF
     }
 }
 
-void destroySwapchain(VulkanContext* context, VulkanSwapchain* swapchain) {
+void destroySwapchain(VulkanContext* context, VulkanSwapchain* swapchain, std::vector<VkFramebuffer>& framebuffers) {
+    destroyFramebuffers(context, framebuffers);
+    
     for (size_t i {0} ; i < swapchain->imageViews.size(); i++) {
         vkDestroyImageView(context->device, swapchain->imageViews[i], 0);
     }
+    
     vkDestroySwapchainKHR(context->device, swapchain->swapchain, 0);
+}
+
+void recreateSwapchain(GLFWwindow* window, VulkanContext* context, VulkanSwapchain& swapchain, std::vector<VkFramebuffer>& framebuffers, VkSurfaceKHR& surface, VkRenderPass& renderPass) {
+    int width {0}, height {0};
+    glfwGetFramebufferSize(window, &width, &height);
+    while (width == 0 || height == 0) {
+        glfwGetFramebufferSize(window, &width, &height);
+        glfwWaitEvents();
+    }
+    
+    vkDeviceWaitIdle(context->device);
+    destroySwapchain(context, &swapchain, framebuffers);
+    createSwapchain(context, surface, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, swapchain);
+    createFramebuffers(context, swapchain, renderPass, framebuffers);
 }
