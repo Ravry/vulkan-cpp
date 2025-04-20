@@ -193,7 +193,7 @@ void cleanVulkan(VulkanContext*& context) {
     context = nullptr;
 }
 
-void createFramebuffers(VulkanContext* context, std::vector<VkFramebuffer>& framebuffers, VulkanSwapchain& swapchain, VkRenderPass& renderPass) {
+void createFramebuffers(VulkanContext* context, VulkanSwapchain& swapchain, VkRenderPass& renderPass, std::vector<VkFramebuffer>& framebuffers) {
     framebuffers.resize(swapchain.images.size());
     for (size_t i {0}; i < swapchain.images.size(); i++) {
         VkFramebufferCreateInfo createInfo = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
@@ -214,28 +214,47 @@ void destroyFramebuffers(VulkanContext* context, std::vector<VkFramebuffer>& fra
     framebuffers.clear();
 }
 
-void createFence(VulkanContext* context, VkFence* fence) {
+void createFence(VulkanContext* context, std::vector<VkFence>& fences) {
+    fences.resize(MAX_FRAMES_IN_FLIGHT);
+
     VkFenceCreateInfo createInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
     createInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-    VAC(vkCreateFence(context->device, &createInfo, 0, fence));
+
+    for (size_t i {0}; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VAC(vkCreateFence(context->device, &createInfo, 0, &fences[i]));
+    }
 }
 
-void createSemaphore(VulkanContext* context, VkSemaphore* semaphore) {
+void createSemaphore(VulkanContext* context, std::vector<VkSemaphore>& semaphores) {
+    semaphores.resize(MAX_FRAMES_IN_FLIGHT);
     VkSemaphoreCreateInfo createInfo { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-    VAC(vkCreateSemaphore(context->device, &createInfo, 0, semaphore));
+    
+    for (size_t i {0}; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VAC(vkCreateSemaphore(context->device, &createInfo, 0, &semaphores[i]));
+    }
 }
 
 void createCommandPool(VulkanContext* context, VkCommandPool* commandPool) {
     VkCommandPoolCreateInfo createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
-    createInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+    createInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     createInfo.queueFamilyIndex = context->graphicsQueue.familyIndex;
     VAC(vkCreateCommandPool(context->device, &createInfo, 0, commandPool));
 }
 
-void allocateCommandBuffers(VulkanContext* context, VkCommandPool& commandPool, VkCommandBuffer* commandBuffer) {
+void allocateCommandBuffers(VulkanContext* context, VkCommandPool& commandPool, std::vector<VkCommandBuffer>& commandBuffers) {
+    commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
     VkCommandBufferAllocateInfo allocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
     allocateInfo.commandPool = commandPool;
     allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocateInfo.commandBufferCount = 1;
-    VAC(vkAllocateCommandBuffers(context->device, &allocateInfo, commandBuffer));
+    allocateInfo.commandBufferCount = (uint32_t)commandBuffers.size();
+    VAC(vkAllocateCommandBuffers(context->device, &allocateInfo, commandBuffers.data()));
+}
+
+void destroySyncObjects(VulkanContext* context, std::vector<VkSemaphore>& acquireSemaphores, std::vector<VkSemaphore>& releaseSemaphores, std::vector<VkFence>& fences)
+{
+    for (size_t i {0}; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vkDestroySemaphore(context->device, acquireSemaphores[i], 0);
+        vkDestroySemaphore(context->device, releaseSemaphores[i], 0);
+        vkDestroyFence(context->device, fences[i], 0);
+    }
 }

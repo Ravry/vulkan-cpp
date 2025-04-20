@@ -4,6 +4,7 @@
 #include <glfw/glfw3.h>
 #include <GLFW/glfw3native.h>
 #include "vulkan-base.h"
+#include "input.h"
 
 class Window {
 private: 
@@ -16,10 +17,10 @@ private:
     std::vector<VkFramebuffer> framebuffers;
     VulkanPipeline pipeline;
     VkCommandPool commandPool;
-    VkCommandBuffer commandBuffer;
-    VkFence fence;
-    VkSemaphore acquireSemaphore;
-    VkSemaphore releaseSemaphore;
+    std::vector<VkCommandBuffer> commandBuffer;
+    std::vector<VkFence> fence;
+    std::vector<VkSemaphore> acquireSemaphore;
+    std::vector<VkSemaphore> releaseSemaphore;
 
     uint16_t width;
     uint16_t height;

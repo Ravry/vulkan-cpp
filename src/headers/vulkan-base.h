@@ -13,6 +13,9 @@
         } \
     } while(0)
 
+
+const size_t MAX_FRAMES_IN_FLIGHT = 2;
+
 struct VulkanQueue {
     VkQueue queue;
     uint32_t familyIndex;
@@ -45,16 +48,15 @@ void destroySwapchain(VulkanContext* context, VulkanSwapchain* swapchain);
 void createRenderPass(VulkanContext* context, VkFormat format, VkRenderPass& renderPass);
 void destroyRenderpass(VulkanContext* context, VkRenderPass renderPass);
 
-void createFramebuffers(VulkanContext* context, std::vector<VkFramebuffer>& framebuffers, VulkanSwapchain& swapchain, VkRenderPass& renderPass);
+void createFramebuffers(VulkanContext* context, VulkanSwapchain& swapchain, VkRenderPass& renderPass, std::vector<VkFramebuffer>& framebuffers);
 void destroyFramebuffers(VulkanContext* context, std::vector<VkFramebuffer>& framebuffers);
 
 void createPipeline(VulkanContext* context, const char* vertexShaderFilename, const char* fragmentShaderFilename, VkRenderPass renderPass, uint32_t width, uint32_t height, VulkanPipeline& pipeline);
 void destroyPipeline(VulkanContext* context, VulkanPipeline* pipeline);
 
-void createFence(VulkanContext* context, VkFence* fence);
-
-void createSemaphore(VulkanContext* context, VkSemaphore* semaphore);
-
+void createFence(VulkanContext* context, std::vector<VkFence>& fences);
+void createSemaphore(VulkanContext* context, std::vector<VkSemaphore>& semaphores);
 void createCommandPool(VulkanContext* context, VkCommandPool* commandPool);
+void destroySyncObjects(VulkanContext* context, std::vector<VkSemaphore>& acquireSemaphores, std::vector<VkSemaphore>& releaseSemaphores, std::vector<VkFence>& fences);
 
-void allocateCommandBuffers(VulkanContext* context, VkCommandPool& commandPool, VkCommandBuffer* commandBuffer);
+void allocateCommandBuffers(VulkanContext* context, VkCommandPool& commandPool, std::vector<VkCommandBuffer>& commandBuffer);
